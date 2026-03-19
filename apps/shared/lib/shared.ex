@@ -1,0 +1,2 @@
+defmodule Shared do
+end
