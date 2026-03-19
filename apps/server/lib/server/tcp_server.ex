@@ -29,8 +29,14 @@ defmodule Server.TcpServer do
       {:ok, client_socket} ->
         Logger.info("Client connected: #{inspect(client_socket)}")
 
-        spawn(fn -> handle_client(client_socket) end)
+        {:ok, pid} = Server.ClientSupervisor.start_child(client_socket)
+        Logger.info("Started client handler with PID: #{inspect(pid)}")
+
+        :gen_tcp.controlling_process(client_socket, pid)
+
+        send(pid, :socket_ready)
         send(self(), :accept)
+
         {:noreply, state}
 
       {:error, reason} ->
@@ -38,17 +44,4 @@ defmodule Server.TcpServer do
         {:noreply, state}
     end
   end
-
-  defp handle_client(client_socket) do
-    case :gen_tcp.recv(client_socket, 0) do
-      {:ok, data} ->
-        Logger.info("Received data from client: #{data}")
-        :gen_tcp.send(client_socket, "Echo: #{data}")
-        handle_client(client_socket)
-
-      {:error, reason} ->
-        Logger.error("Failed to receive data from client: #{reason}")
-    end
-  end
 end
-

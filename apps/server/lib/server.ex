@@ -3,7 +3,8 @@ defmodule Server.Application do
 
   def start(_type, _args) do
     children = [
-      {Server.TcpServer, 4000}
+      {Server.TcpServer, 4000},
+      Server.ClientSupervisor
     ]
 
     opts = [strategy: :one_for_one, name: Server.Supervisor]
