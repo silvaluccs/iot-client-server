@@ -2,8 +2,8 @@ defmodule Sensor.Worker do
   require Logger
   use GenServer
 
-  @server_address {127, 0, 0, 1}
-  @port 5000
+  @default_server_host "127.0.0.1"
+  @default_port 5000
 
   def start_link(_) do
     GenServer.start_link(__MODULE__, [], name: __MODULE__)
@@ -13,13 +13,23 @@ defmodule Sensor.Worker do
   def init(_) do
     Logger.info("Starting connection to server...")
 
+    server_host = System.get_env("SERVER_HOST", @default_server_host)
+
+    server_port =
+      System.get_env("SERVER_PORT", Integer.to_string(@default_port))
+      |> String.to_integer()
+
+    server_address = parse_server_host(server_host)
+
     case :gen_udp.open(0, [:binary, active: true]) do
       {:ok, socket} ->
         type_sensor = Enum.random(["temperature", "humidity", "pressure"])
 
         sensor_id = UUIDv7.generate()
 
-        Logger.info("Connected to server on port #{@port}")
+        Logger.info(
+          "Sensor #{sensor_id} with type #{type_sensor} Connected to server at #{server_host}:#{server_port}"
+        )
 
         scheudule_send()
 
@@ -27,9 +37,9 @@ defmodule Sensor.Worker do
          %{
            socket: socket,
            type: type_sensor,
-           server_address: @server_address,
+           server_address: server_address,
            id: sensor_id,
-           port: @port
+           port: server_port
          }}
 
       {:error, reason} ->
@@ -58,4 +68,25 @@ defmodule Sensor.Worker do
   end
 
   defp scheudule_send(), do: Process.send_after(self(), :send_data, 1)
+
+  defp parse_server_host(host) do
+    charlist = String.to_charlist(host)
+
+    case :inet.parse_address(charlist) do
+      {:ok, ip} ->
+        ip
+
+      {:error, _} ->
+        case :inet.getaddr(charlist, :inet) do
+          {:ok, ip} ->
+            ip
+
+          {:error, _} ->
+            {:ok, ip} =
+              :inet.parse_address(String.to_charlist(@default_server_host))
+
+            ip
+        end
+    end
+  end
 end

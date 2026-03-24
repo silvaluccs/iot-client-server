@@ -9,7 +9,7 @@ defmodule Sensor.Application do
   def start(_type, _args) do
     children = [
       # Starts a worker by calling: Sensor.Worker.start_link(arg)
-      # {Sensor.Worker, arg}
+      {Sensor.Worker, []}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
