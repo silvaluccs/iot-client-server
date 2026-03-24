@@ -16,4 +16,14 @@ defmodule Shared.Message do
       %__MODULE__{pid: pid, message: message, timestamp: timestamp}
     end
   end
+
+  defmodule SensorData do
+    @derive Jason.Encoder
+    defstruct [:id, :type, :value, :timestamp]
+
+    def new(id, type, value) do
+      brazilian_time = DateTime.utc_now() |> DateTime.add(-3 * 3600) |> DateTime.to_iso8601()
+      %__MODULE__{id: id, type: type, value: value, timestamp: brazilian_time}
+    end
+  end
 end
