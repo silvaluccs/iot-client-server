@@ -5,7 +5,7 @@ defmodule Server.Application do
     children = [
       {Server.TcpServer, 4000},
       {Server.UdpServer, 5000},
-      Server.SensorHandler,
+      Server.SensorManager,
       Server.ClientSupervisor
     ]
 

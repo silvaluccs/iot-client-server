@@ -26,10 +26,11 @@ defmodule Server.UdpServer do
     with {:ok, message} <- Shared.Protocol.decode(data) do
       case message do
         %{"id" => id, "type" => type, "value" => value, "timestamp" => timestamp} ->
-          Server.SensorHandler.update_sensor(id, %{
+          Server.SensorManager.update_sensor(id, %{
             type: type,
             value: value,
-            timestamp: timestamp
+            timestamp: timestamp,
+            active: true
           })
       end
     else
