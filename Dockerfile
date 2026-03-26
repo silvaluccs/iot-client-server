@@ -18,4 +18,6 @@ RUN mix local.hex --force && mix local.rebar --force
 
 COPY --from=build /app /app
 
+RUN mkdir -p logs && chmod 777 logs
+
 CMD ["mix", "run", "--no-halt"]

@@ -1,19 +1,23 @@
 defmodule Shared.Message do
   defmodule Command do
     @derive Jason.Encoder
-    defstruct [:pid, :command_id, :timestamp]
+    defstruct [:id, :command_id, :timestamp]
 
-    def new(pid, command_id, timestamp) do
-      %__MODULE__{pid: pid, command_id: command_id, timestamp: timestamp}
+    def new(id, command_id) do
+      %__MODULE__{id: id, command_id: command_id, timestamp: Shared.Message.timestamp()}
+    end
+
+    def new(id, command_id, timestamp) do
+      %__MODULE__{id: id, command_id: command_id, timestamp: timestamp}
     end
   end
 
   defmodule ClienteResponse do
     @derive Jason.Encoder
-    defstruct [:pid, :message, :timestamp]
+    defstruct [:client_id, :message, :timestamp]
 
-    def new(pid, message, timestamp) do
-      %__MODULE__{pid: pid, message: message, timestamp: timestamp}
+    def new(client_id, message) do
+      %__MODULE__{client_id: client_id, message: message, timestamp: Shared.Message.timestamp()}
     end
   end
 
@@ -22,8 +26,11 @@ defmodule Shared.Message do
     defstruct [:id, :type, :value, :timestamp]
 
     def new(id, type, value) do
-      brazilian_time = DateTime.utc_now() |> DateTime.add(-3 * 3600) |> DateTime.to_iso8601()
-      %__MODULE__{id: id, type: type, value: value, timestamp: brazilian_time}
+      %__MODULE__{id: id, type: type, value: value, timestamp: Shared.Message.timestamp()}
     end
+  end
+
+  def timestamp do
+    DateTime.utc_now() |> DateTime.add(-3 * 3600) |> DateTime.to_iso8601()
   end
 end

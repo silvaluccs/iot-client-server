@@ -56,3 +56,29 @@ services:
     depends_on:
       - server
     restart: unless-stopped
+
+  client:
+      build:
+        context: .
+        dockerfile: Dockerfile
+      stdin_open: true
+      tty: true
+
+      command:
+        [
+          "mix",
+          "run",
+          "--no-start",
+          "--no-halt",
+          "-e",
+          "Application.ensure_all_started(:client)",
+        ]
+      environment:
+        SERVER_HOST: "server"
+        SERVER_PORT: "4000"
+        IS_CLIENT: "true" # <-- Adicione isso
+      depends_on:
+        - server
+      restart: unless-stopped
+
+

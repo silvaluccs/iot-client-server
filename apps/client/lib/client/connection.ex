@@ -2,26 +2,25 @@ defmodule Client.Connection do
   use GenServer
   require Logger
 
-  @server_address ~c"localhost"
-  @port 4000
-
   def start_link(_) do
     GenServer.start_link(__MODULE__, [], name: __MODULE__)
   end
 
   @impl true
   def init(_) do
-    Logger.info("Starting connection to server...")
+    IO.puts("Conectando ao servidor...")
+
+    server_address = System.get_env("SERVER_HOST", "localhost") |> String.to_charlist()
+    port = System.get_env("SERVER_PORT", "4000") |> String.to_integer()
 
     {:ok, socket} =
-      :gen_tcp.connect(@server_address, @port, [
+      :gen_tcp.connect(server_address, port, [
         :binary,
         packet: :line,
         active: true,
         reuseaddr: true
       ])
 
-    Logger.info("Connected to server in port #{@port}")
     {:ok, %{socket: socket}}
   end
 
@@ -33,37 +32,39 @@ defmodule Client.Connection do
   def handle_cast({:send_command, message}, state) do
     {:ok, json} = Shared.Protocol.encode(message)
 
-    case :gen_tcp.send(state.socket, json <> "\r\n") do
-      :ok ->
-        Logger.info("Sent message: #{inspect(message)}")
-        {:noreply, state}
+    :gen_tcp.send(state.socket, json <> "\r\n")
 
-      {:error, reason} ->
-        Logger.error("Failed to send message: #{inspect(reason)}")
-        {:noreply, state}
-    end
+    {:noreply, state}
   end
 
   @impl true
   def handle_info({:tcp, _socket, data}, state) do
-    Logger.info("Received data: #{data}")
-    IO.puts("Received data: #{data}")
+    data = String.trim(data)
+
+    case Shared.Protocol.decode(data) do
+      {:ok, message} ->
+        Client.Shell.display_message(message)
+
+      {:error, reason} ->
+        IO.puts(
+          "A mensagem recebida do servidor não pôde ser processada. Verifique os logs para mais detalhes. #{inspect(reason)}"
+        )
+    end
+
     {:noreply, state}
   end
 
   @impl true
   def handle_info({:tcp_error, _socket, reason}, state) do
-    message = "TCP connection error. #{inspect(reason)}"
+    message = "Erro na conexão TCP. #{inspect(reason)}"
     IO.puts(message)
-    Logger.error(message)
     {:stop, :normal, state}
   end
 
   @impl true
   def handle_info({:tcp_closed, _socket}, state) do
-    message = "TCP connection closed by server."
+    message = "A conexão com o servidor foi fechada."
     IO.puts(message)
-    Logger.warning(message)
     {:stop, :normal, state}
   end
 end
