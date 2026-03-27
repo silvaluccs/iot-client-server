@@ -26,7 +26,8 @@ defmodule Shared.MixProject do
   defp deps do
     [
       {:jason, "~> 1.4"},
-      {:uuid_v7, "~> 0.6.0"}
+      {:uuid_v7, "~> 0.6.0"},
+      {:asciichart, "~> 1.0"}
 
       # {:httpoison, "~> 2.0"}
       # {:exvcr, "~> 0.10", only: :test}

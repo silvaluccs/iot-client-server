@@ -23,8 +23,8 @@ defmodule Server.ClientHandler do
     if trimmed != "" do
       with {:ok, decode} <- Shared.Protocol.decode(trimmed) do
         case decode do
-          %{"id" => _, "command_id" => _, "timestamp" => _} = map ->
-            command = Shared.Message.Command.new(map["id"], map["command_id"], map["timestamp"])
+          %{"id" => _, "command" => _, "timestamp" => _} = map ->
+            command = Shared.Message.Command.new(map["id"], map["command"], map["timestamp"])
             Logger.info("Received command: #{inspect(command)}")
             Task.start(fn -> process_command(command, socket) end)
 
@@ -52,17 +52,94 @@ defmodule Server.ClientHandler do
     {:stop, :normal, state}
   end
 
-  defp process_command(command, client_socket) do
-    response_message =
-      case command.command_id do
-        1 -> "Ping received at #{DateTime.utc_now()}"
-        2 -> "Echo: #{command.id} at #{DateTime.utc_now()}"
-        _ -> "Unknown command ID: #{command.command_id}"
-      end
+  defp process_command(command_map, client_socket) do
+    parts =
+      command_map.command
+      |> String.downcase()
+      |> String.split()
 
-    response = Shared.Message.ClienteResponse.new(command.id, response_message)
+    case parts do
+      ["ls"] ->
+        send_active_sensors(client_socket, command_map)
+
+      ["cat", "sensors"] ->
+        send_all_sensors_data(client_socket, command_map)
+
+      ["cat", sensor_id] ->
+        sensor_data = Server.SensorManager.get_list_active_sensors() |> Map.get(sensor_id)
+
+        if sensor_data do
+          message =
+            "Sensor #{sensor_id} (#{sensor_data.type}): #{sensor_data.value} visto pela última vez em #{sensor_data.timestamp}"
+
+          response = Shared.Message.Response.new(command_map.id, message)
+          {:ok, json} = Shared.Protocol.encode(response)
+          :gen_tcp.send(client_socket, json <> "\r\n")
+        else
+          message = "Sensor #{sensor_id} não encontrado ou inativo."
+          response = Shared.Message.Response.new(command_map.id, message)
+          {:ok, json} = Shared.Protocol.encode(response)
+          :gen_tcp.send(client_socket, json <> "\r\n")
+        end
+
+      ["graph", sensor_id] ->
+        send_specific_sensor_data(client_socket, command_map, sensor_id)
+
+      _ ->
+        message = "Comando desconhecido: #{command_map.command}"
+        response = Shared.Message.Response.new(command_map.id, message)
+        {:ok, json} = Shared.Protocol.encode(response)
+        :gen_tcp.send(client_socket, json <> "\r\n")
+    end
+  end
+
+  defp send_specific_sensor_data(client_socket, command_map, sensor_id) do
+    case Server.SensorManager.get_sensor_data(sensor_id) do
+      data when not is_nil(data) ->
+        history_to_plot = Enum.reverse(data.history)
+
+        message = "CHART:#{sensor_id}:#{Jason.encode!(history_to_plot)}"
+        response = Shared.Message.Response.new(command_map.id, message)
+        {:ok, json} = Shared.Protocol.encode(response)
+        :gen_tcp.send(client_socket, json <> "\r\n")
+
+      _ ->
+        message = "Sensor #{sensor_id} não encontrado."
+        response = Shared.Message.Response.new(command_map.id, message)
+        {:ok, json} = Shared.Protocol.encode(response)
+        :gen_tcp.send(client_socket, json <> "\r\n")
+    end
+  end
+
+  defp send_all_sensors_data(client_socket, command_map) do
+    sensors =
+      Server.SensorManager.get_list_active_sensors()
+      |> Enum.map(fn {id, data} ->
+        %{id: id, type: data.type, value: data.value, last_seen: data.timestamp}
+      end)
+
+    message =
+      "Dados dos sensores ativos: #{length(sensors)} \n #{Enum.map_join(sensors, "\n", fn s -> "- #{s.id} (#{s.type}): #{s.value} visto pela última vez em #{s.last_seen}" end)}"
+
+    response = Shared.Message.Response.new(command_map.id, message)
+
     {:ok, json} = Shared.Protocol.encode(response)
+
+    :gen_tcp.send(client_socket, json <> "\r\n")
+  end
+
+  defp send_active_sensors(client_socket, command_map) do
+    sensors =
+      Server.SensorManager.get_list_active_sensors()
+      |> Enum.map(fn {id, data} -> %{id: id, type: data.type, last_seen: data.timestamp} end)
+
+    message =
+      "Sensores ativos: #{length(sensors)} \n #{Enum.map_join(sensors, "\n", fn s -> "- #{s.id} (#{s.type}) visto pela última vez em #{s.last_seen}" end)}"
+
+    response = Shared.Message.Response.new(command_map.id, message)
+
+    {:ok, json} = Shared.Protocol.encode(response)
+
     :gen_tcp.send(client_socket, json <> "\r\n")
   end
 end
-

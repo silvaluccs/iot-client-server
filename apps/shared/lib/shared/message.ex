@@ -1,18 +1,18 @@
 defmodule Shared.Message do
   defmodule Command do
     @derive Jason.Encoder
-    defstruct [:id, :command_id, :timestamp]
+    defstruct [:id, :command, :timestamp]
 
-    def new(id, command_id) do
-      %__MODULE__{id: id, command_id: command_id, timestamp: Shared.Message.timestamp()}
+    def new(id, command) do
+      %__MODULE__{id: id, command: command, timestamp: Shared.Message.timestamp()}
     end
 
-    def new(id, command_id, timestamp) do
-      %__MODULE__{id: id, command_id: command_id, timestamp: timestamp}
+    def new(id, command, timestamp) do
+      %__MODULE__{id: id, command: command, timestamp: timestamp}
     end
   end
 
-  defmodule ClienteResponse do
+  defmodule Response do
     @derive Jason.Encoder
     defstruct [:client_id, :message, :timestamp]
 

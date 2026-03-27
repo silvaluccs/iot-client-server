@@ -42,7 +42,7 @@ defmodule Client.Connection do
     data = String.trim(data)
 
     case Shared.Protocol.decode(data) do
-      {:ok, message} ->
+      {:ok, %{"client_id" => _, "message" => message, "timestamp" => _}} ->
         Client.Shell.display_message(message)
 
       {:error, reason} ->

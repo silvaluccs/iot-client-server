@@ -14,12 +14,12 @@ defmodule Client.Shell do
     client_id = UUIDv7.generate()
     IO.puts("Iniciando o Shell... Client ID: #{client_id}")
     Process.send_after(self(), :start_shell, @shell_start_delay)
-    {:ok, %{client_id: client_id}}
+
+    {:ok, %{client_id: client_id, active_graph: nil}}
   end
 
   @impl true
   def handle_info(:start_shell, state) do
-    # Roda o shell numa Task; quando terminar, notifica o GenServer
     parent = self()
 
     Task.start(fn ->
@@ -32,14 +32,25 @@ defmodule Client.Shell do
 
   @impl true
   def handle_info({:shell_done, :eof}, state) do
-    # TTY ainda não estava pronto, tenta novamente
     IO.puts("EOF recebido antes do TTY estar pronto. Tentando novamente...")
     Process.send_after(self(), :start_shell, @eof_retry_delay)
     {:noreply, state}
   end
 
+  @impl true
   def handle_info({:shell_done, :ok}, state) do
     IO.puts("Shell encerrado.")
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_info({:poll_top, sensor_id}, state) do
+    # Só faz o polling se o gráfico ainda estiver ativo no estado
+    if state.active_graph == sensor_id do
+      command = Shared.Message.Command.new(state.client_id, "graph #{sensor_id}")
+      Client.Connection.send_message(command)
+    end
+
     {:noreply, state}
   end
 
@@ -48,9 +59,40 @@ defmodule Client.Shell do
   end
 
   @impl true
+  def handle_cast({:display_message, "CHART:" <> chart_data}, state) do
+    [sensor_id, json_history] = String.split(chart_data, ":", parts: 2)
+    history = Jason.decode!(json_history)
+
+    # Limpa o console
+    IO.write("\e[H\e[2J")
+
+    if length(history) > 1 do
+      {:ok, chart} = Asciichart.plot(history, height: 10)
+      IO.puts(chart)
+    else
+      IO.puts("Aguardando mais dados para desenhar o gráfico...")
+    end
+
+    IO.puts("Monitorando Sensor: #{sensor_id} (Digite 'q' e aperte ENTER para sair)")
+
+    # Agenda a próxima atualização
+    Process.send_after(self(), {:poll_top, sensor_id}, 1000)
+
+    # Atualiza o estado para indicar que este gráfico está rodando
+    {:noreply, %{state | active_graph: sensor_id}}
+  end
+
+  @impl true
   def handle_cast({:display_message, message}, state) do
-    IO.puts("Mensagem do servidor: #{inspect(message)}")
+    IO.puts("#{message}")
     {:noreply, state}
+  end
+
+  @impl true
+  def handle_cast(:stop_graph, state) do
+    IO.puts("\nSaindo do modo gráfico...")
+    # Limpa o active_graph, o que vai impedir que o próximo :poll_top envie mensagem
+    {:noreply, %{state | active_graph: nil}}
   end
 
   defp shell_loop(state) do
@@ -60,7 +102,6 @@ defmodule Client.Shell do
 
       :eof ->
         IO.puts("EOF recebido.")
-        # <-- retorna :eof para o GenServer decidir o que fazer
         :eof
 
       input when is_binary(input) ->
@@ -77,6 +118,7 @@ defmodule Client.Shell do
     Comandos disponíveis:
     - help: Exibe esta mensagem de ajuda.
     - exit: Encerra o shell.
+    - q: Sai do modo de monitoramento gráfico.
     - qualquer número será enviado ao servidor como comando.
     """)
 
@@ -88,17 +130,28 @@ defmodule Client.Shell do
     :ok
   end
 
+  defp handle_input("clear", state) do
+    IO.write("\e[H\e[2J")
+    shell_loop(state)
+  end
+
+  # Novo comando para sair do gráfico sem matar a aplicação
+  defp handle_input("q", state) do
+    GenServer.cast(__MODULE__, :stop_graph)
+    shell_loop(state)
+  end
+
   defp handle_input(input, state) do
-    case Integer.parse(input) do
-      {command_id, ""} ->
-        command = Shared.Message.Command.new(state.client_id, command_id)
-        Client.Connection.send_message(command)
-        shell_loop(state)
+    # Se o usuário digitar algo, garantimos que saia do modo gráfico se estiver nele
+    #
+    #
 
-      _ ->
-        IO.puts("Comando desconhecido: #{inspect(input)}. Digite 'help' para ver os comandos.")
-
-        shell_loop(state)
+    if state.active_graph != nil do
+      IO.puts("\nSaindo do modo gráfico...")
     end
+
+    command = Shared.Message.Command.new(state.client_id, input)
+    Client.Connection.send_message(command)
+    shell_loop(state)
   end
 end

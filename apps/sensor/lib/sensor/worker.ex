@@ -23,7 +23,7 @@ defmodule Sensor.Worker do
 
     case :gen_udp.open(0, [:binary, active: true]) do
       {:ok, socket} ->
-        type_sensor = Enum.random(["temperature", "humidity", "pressure"])
+        type_sensor = Enum.random(["Temperatura", "Umidade", "Pressão"])
 
         sensor_id = UUIDv7.generate()
 
@@ -52,9 +52,9 @@ defmodule Sensor.Worker do
   def handle_info(:send_data, state) do
     value =
       case state.type do
-        "temperature" -> Enum.random(15..30)
-        "humidity" -> Enum.random(30..70)
-        "pressure" -> Enum.random(980..1050)
+        "Temperatura" -> Enum.random(15..30)
+        "Umidade" -> Enum.random(30..70)
+        "Pressão" -> Enum.random(980..1050)
       end
 
     message = Shared.Message.SensorData.new(state.id, state.type, value)

@@ -28,7 +28,6 @@ defmodule Server.TcpServer do
     case :gen_tcp.accept(state.socket) do
       {:ok, client_socket} ->
         Logger.info("Client connected: #{inspect(client_socket)}")
-
         {:ok, pid} = Server.ClientSupervisor.start_child(client_socket)
         Logger.info("Started client handler with PID: #{inspect(pid)}")
 

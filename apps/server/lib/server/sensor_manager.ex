@@ -90,7 +90,14 @@ defmodule Server.SensorManager do
 
   @impl true
   def handle_cast({:update, sensor_id, data}, state) do
-    new_state = Map.put(state, sensor_id, data)
+    current_sensor = Map.get(state, sensor_id, %{history: []})
+
+    new_value = data.value
+    new_history = Enum.take([new_value | current_sensor.history], 50)
+
+    updated_data = Map.put(data, :history, new_history)
+    new_state = Map.put(state, sensor_id, updated_data)
+
     {:noreply, new_state}
   end
 
