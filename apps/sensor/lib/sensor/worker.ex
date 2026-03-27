@@ -13,7 +13,7 @@ defmodule Sensor.Worker do
   def init(_) do
     Logger.info("Starting connection to server...")
 
-    server_host = System.get_env("SERVER_HOST", @default_server_host)
+    server_host = System.get_env("SERVER_IP", System.get_env("SERVER_HOST", @default_server_host))
 
     server_port =
       System.get_env("SERVER_PORT", Integer.to_string(@default_port))

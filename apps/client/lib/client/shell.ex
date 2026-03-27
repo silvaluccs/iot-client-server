@@ -12,6 +12,7 @@ defmodule Client.Shell do
   @impl true
   def init(_) do
     client_id = UUIDv7.generate()
+
     IO.puts("Iniciando o Shell... Client ID: #{client_id}")
     Process.send_after(self(), :start_shell, @shell_start_delay)
 
@@ -45,7 +46,6 @@ defmodule Client.Shell do
 
   @impl true
   def handle_info({:poll_top, sensor_id}, state) do
-    # Só faz o polling se o gráfico ainda estiver ativo no estado
     if state.active_graph == sensor_id do
       command = Shared.Message.Command.new(state.client_id, "graph #{sensor_id}")
       Client.Connection.send_message(command)
@@ -63,7 +63,6 @@ defmodule Client.Shell do
     [sensor_id, json_history] = String.split(chart_data, ":", parts: 2)
     history = Jason.decode!(json_history)
 
-    # Limpa o console
     IO.write("\e[H\e[2J")
 
     if length(history) > 1 do
@@ -75,10 +74,8 @@ defmodule Client.Shell do
 
     IO.puts("Monitorando Sensor: #{sensor_id} (Digite 'q' e aperte ENTER para sair)")
 
-    # Agenda a próxima atualização
     Process.send_after(self(), {:poll_top, sensor_id}, 1000)
 
-    # Atualiza o estado para indicar que este gráfico está rodando
     {:noreply, %{state | active_graph: sensor_id}}
   end
 
@@ -91,7 +88,6 @@ defmodule Client.Shell do
   @impl true
   def handle_cast(:stop_graph, state) do
     IO.puts("\nSaindo do modo gráfico...")
-    # Limpa o active_graph, o que vai impedir que o próximo :poll_top envie mensagem
     {:noreply, %{state | active_graph: nil}}
   end
 
@@ -135,17 +131,12 @@ defmodule Client.Shell do
     shell_loop(state)
   end
 
-  # Novo comando para sair do gráfico sem matar a aplicação
   defp handle_input("q", state) do
     GenServer.cast(__MODULE__, :stop_graph)
     shell_loop(state)
   end
 
   defp handle_input(input, state) do
-    # Se o usuário digitar algo, garantimos que saia do modo gráfico se estiver nele
-    #
-    #
-
     if state.active_graph != nil do
       IO.puts("\nSaindo do modo gráfico...")
     end

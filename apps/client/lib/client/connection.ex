@@ -10,7 +10,7 @@ defmodule Client.Connection do
   def init(_) do
     IO.puts("Conectando ao servidor...")
 
-    server_address = System.get_env("SERVER_HOST", "localhost") |> String.to_charlist()
+    server_address = System.get_env("SERVER_IP", System.get_env("SERVER_HOST", "localhost")) |> String.to_charlist()
     port = System.get_env("SERVER_PORT", "4000") |> String.to_integer()
 
     {:ok, socket} =
