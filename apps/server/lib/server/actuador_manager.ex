@@ -12,7 +12,7 @@ defmodule Server.ActuadorManager do
   end
 
   defp schedule_actuators() do
-    Process.send_after(self(), :check_status_and_remove, 60000)
+    Process.send_after(self(), :check_status_and_remove, 180000)
   end
 
   def get_last_command_executed(id) do
@@ -40,7 +40,7 @@ defmodule Server.ActuadorManager do
     new_state =
       state
       |> Enum.reject(fn {_id, actuator_data} ->
-        {:ok, last_seen, _} = DateTime.from_iso8601(actuator_data.timestamp)
+        {:ok, last_seen, _} = DateTime.from_iso8601(actuator_data.last_seen)
 
         DateTime.diff(now, last_seen) > timeout_seconds
       end)

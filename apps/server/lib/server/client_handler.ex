@@ -62,8 +62,20 @@ defmodule Server.ClientHandler do
       ["ls"] ->
         send_active_sensors(client_socket, command_map)
 
+      ["ls", "actuators"] ->
+        send_active_actuators(client_socket, command_map)
+
       ["cat", "sensors"] ->
         send_all_sensors_data(client_socket, command_map)
+
+      ["cat", "actuators"] ->
+        send_all_actuators_data(client_socket, command_map)
+
+      ["cat", "actuator", actuator_id] ->
+        send_actuator_data(client_socket, command_map, actuator_id)
+
+      ["send", actuator_id, cmd] ->
+        send_command_to_actuator(client_socket, command_map, actuator_id, cmd)
 
       ["cat", sensor_id] ->
         sensor_data = Server.SensorManager.get_list_active_sensors() |> Map.get(sensor_id)
@@ -141,5 +153,76 @@ defmodule Server.ClientHandler do
     {:ok, json} = Shared.Protocol.encode(response)
 
     :gen_tcp.send(client_socket, json <> "\r\n")
+  end
+
+  defp send_active_actuators(client_socket, command_map) do
+    actuators =
+      Server.ActuadorManager.get_all_actuators()
+      |> Enum.map(fn {id, data} -> %{id: id, name: data.name, last_seen: data.last_seen} end)
+
+    message =
+      "Atuadores ativos: #{length(actuators)} \n #{Enum.map_join(actuators, "\n", fn a -> "- #{a.id} (#{a.name}) visto pela última vez em #{a.last_seen}" end)}"
+
+    response = Shared.Message.Response.new(command_map.id, message)
+    {:ok, json} = Shared.Protocol.encode(response)
+    :gen_tcp.send(client_socket, json <> "\r\n")
+  end
+
+  defp send_all_actuators_data(client_socket, command_map) do
+    actuators =
+      Server.ActuadorManager.get_all_actuators()
+      |> Enum.map(fn {id, data} ->
+        active_str = if data.active, do: "LIGADO", else: "DESLIGADO"
+        cmd_str = Map.get(data, :last_command_executed, nil) || "Nenhum"
+        %{id: id, name: data.name, status: active_str, cmd: cmd_str, last_seen: data.last_seen}
+      end)
+
+    message =
+      "Dados dos atuadores ativos: #{length(actuators)} \n #{Enum.map_join(actuators, "\n", fn a -> "- #{a.id} (#{a.name}): Status #{a.status}, Último Comando: #{a.cmd}, visto pela última vez em #{a.last_seen}" end)}"
+
+    response = Shared.Message.Response.new(command_map.id, message)
+    {:ok, json} = Shared.Protocol.encode(response)
+    :gen_tcp.send(client_socket, json <> "\r\n")
+  end
+
+  defp send_actuator_data(client_socket, command_map, actuator_id) do
+    actuator_data = Server.ActuadorManager.get_actuator(actuator_id)
+
+    if actuator_data do
+      active_str = if actuator_data.active, do: "LIGADO", else: "DESLIGADO"
+      cmd_str = Map.get(actuator_data, :last_command_executed, nil) || "Nenhum"
+
+      message =
+        "Atuador #{actuator_id} (#{actuator_data.name}): Status #{active_str}, Último Comando: #{cmd_str}, visto pela última vez em #{actuator_data.last_seen}"
+
+      response = Shared.Message.Response.new(command_map.id, message)
+      {:ok, json} = Shared.Protocol.encode(response)
+      :gen_tcp.send(client_socket, json <> "\r\n")
+    else
+      message = "Atuador #{actuator_id} não encontrado ou inativo."
+      response = Shared.Message.Response.new(command_map.id, message)
+      {:ok, json} = Shared.Protocol.encode(response)
+      :gen_tcp.send(client_socket, json <> "\r\n")
+    end
+  end
+
+  defp send_command_to_actuator(client_socket, command_map, actuator_id, cmd) do
+    actuator_data = Server.ActuadorManager.get_actuator(actuator_id)
+
+    if actuator_data do
+      msg = Shared.Message.Command.new(command_map.id, String.upcase(cmd))
+      {:ok, act_json} = Shared.Protocol.encode(msg)
+      :gen_tcp.send(actuator_data.socket, act_json <> "\r\n")
+
+      message = "Comando '#{String.upcase(cmd)}' enviado ao Atuador #{actuator_id}."
+      response = Shared.Message.Response.new(command_map.id, message)
+      {:ok, json} = Shared.Protocol.encode(response)
+      :gen_tcp.send(client_socket, json <> "\r\n")
+    else
+      message = "Atuador #{actuator_id} não encontrado ou inativo."
+      response = Shared.Message.Response.new(command_map.id, message)
+      {:ok, json} = Shared.Protocol.encode(response)
+      :gen_tcp.send(client_socket, json <> "\r\n")
+    end
   end
 end

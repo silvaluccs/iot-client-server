@@ -23,12 +23,6 @@ defmodule Server.ActuatorHandler do
     if trimmed != "" do
       with {:ok, decode} <- Shared.Protocol.decode(trimmed) do
         case decode do
-          %{"id" => id, "name" => actuador_name, "active" => active, "timestamp" => ts} ->
-            Server.ActuadorManager.update_actuator(
-              id,
-              %{id: id, socket: socket, name: actuador_name, active: active, last_seen: ts}
-            )
-
           %{
             "id" => id,
             "name" => actuador_name,
@@ -45,6 +39,19 @@ defmodule Server.ActuatorHandler do
                 last_command_executed: command_executed,
                 active: active,
                 last_seen: ts
+              }
+            )
+
+          %{"id" => id, "name" => actuador_name, "active" => active, "timestamp" => ts} ->
+            Server.ActuadorManager.update_actuator(
+              id,
+              %{
+                id: id,
+                socket: socket,
+                name: actuador_name,
+                active: active,
+                last_seen: ts,
+                last_command_executed: nil
               }
             )
 

@@ -2,7 +2,7 @@ defmodule Actuator.Worker do
   use GenServer
   require Logger
 
-  @interval_send_state 60000
+  @interval_send_state 50000
 
   def start_link(_) do
     GenServer.start_link(__MODULE__, %{}, name: __MODULE__)

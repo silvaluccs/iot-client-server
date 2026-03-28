@@ -116,7 +116,14 @@ defmodule Client.Shell do
     - help: Exibe esta mensagem de ajuda.
     - exit: Encerra o shell.
     - q: Sai do modo de monitoramento gráfico.
-    - qualquer número será enviado ao servidor como comando.
+    - ls: Lista todos os sensores ativos.
+    - ls actuators: Lista todos os atuadores ativos.
+    - cat sensors: Lista os detalhes de todos os sensores.
+    - cat <sensor_id>: Exibe os detalhes de um sensor específico.
+    - cat actuators: Lista os detalhes de todos os atuadores.
+    - cat actuator <actuator_id>: Exibe os detalhes de um atuador específico.
+    - graph <sensor_id>: Exibe o gráfico de um sensor específico.
+    - send <actuator_id> <ON/OFF>: Envia um comando para um atuador específico.
     """)
 
     shell_loop(state)
