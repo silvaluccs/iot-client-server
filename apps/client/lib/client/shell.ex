@@ -11,7 +11,8 @@ defmodule Client.Shell do
 
   @impl true
   def init(_) do
-    client_id = UUIDv7.generate()
+    client_id = Application.get_env(:client, :client_id) || UUIDv7.generate()
+    Application.put_env(:client, :client_id, client_id)
 
     IO.puts("Iniciando o Shell... Client ID: #{client_id}")
     Process.send_after(self(), :start_shell, @shell_start_delay)

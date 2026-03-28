@@ -30,6 +30,33 @@ defmodule Shared.Message do
     end
   end
 
+  defmodule ActuatorCommand do
+    @derive Jason.Encoder
+    defstruct [:id, :command, :timestamp]
+
+    def new(id, command) do
+      %__MODULE__{id: id, command: command, timestamp: Shared.Message.timestamp()}
+    end
+  end
+
+  defmodule ActuatorRegistration do
+    @derive Jason.Encoder
+    defstruct [:id, :name, :active, :timestamp]
+
+    def new(id, name, active) do
+      %__MODULE__{id: id, name: name, active: active, timestamp: Shared.Message.timestamp()}
+    end
+  end
+
+  defmodule ClientRegistration do
+    @derive Jason.Encoder
+    defstruct [:id, :timestamp]
+
+    def new(id) do
+      %__MODULE__{id: id, timestamp: Shared.Message.timestamp()}
+    end
+  end
+
   def timestamp do
     DateTime.utc_now() |> DateTime.add(-3 * 3600) |> DateTime.to_iso8601()
   end

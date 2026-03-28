@@ -10,7 +10,10 @@ defmodule Client.Connection do
   def init(_) do
     IO.puts("Conectando ao servidor...")
 
-    server_address = System.get_env("SERVER_IP", System.get_env("SERVER_HOST", "localhost")) |> String.to_charlist()
+    server_address =
+      System.get_env("SERVER_IP", System.get_env("SERVER_HOST", "localhost"))
+      |> String.to_charlist()
+
     port = System.get_env("SERVER_PORT", "4000") |> String.to_integer()
 
     {:ok, socket} =
@@ -20,6 +23,13 @@ defmodule Client.Connection do
         active: true,
         reuseaddr: true
       ])
+
+    client_id = Application.get_env(:client, :client_id) || UUIDv7.generate()
+    Application.put_env(:client, :client_id, client_id)
+
+    registration = Shared.Message.ClientRegistration.new(client_id)
+    {:ok, json} = Shared.Protocol.encode(registration)
+    :gen_tcp.send(socket, json <> "\r\n")
 
     {:ok, %{socket: socket}}
   end

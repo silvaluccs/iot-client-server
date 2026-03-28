@@ -6,6 +6,7 @@ defmodule Server.Application do
       {Server.TcpServer, 4000},
       {Server.UdpServer, 5000},
       Server.SensorManager,
+      Server.ActuadorManager,
       Server.ClientSupervisor
     ]
 
