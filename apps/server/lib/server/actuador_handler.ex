@@ -1,6 +1,6 @@
 defmodule Server.ActuatorHandler do
   require Logger
-  use GenServer
+  use GenServer, restart: :temporary
 
   def start_link(client_socket), do: GenServer.start_link(__MODULE__, client_socket)
 

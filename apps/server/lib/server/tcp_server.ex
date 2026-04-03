@@ -31,7 +31,10 @@ defmodule Server.TcpServer do
 
         # Inicia uma task para ler o primeiro pacote (Handshake) sem bloquear o servidor TCP
         {:ok, task_pid} = Task.start(fn -> perform_handshake(client_socket) end)
-        :ok = :gen_tcp.controlling_process(client_socket, task_pid)
+        case :gen_tcp.controlling_process(client_socket, task_pid) do
+          :ok -> :ok
+          {:error, _} -> :gen_tcp.close(client_socket)
+        end
 
         send(self(), :accept)
 
@@ -54,18 +57,23 @@ defmodule Server.TcpServer do
 
             {:ok, pid} = Server.ActuatorHandler.start_link(client_socket)
 
-            :ok = :gen_tcp.controlling_process(client_socket, pid)
-            send(pid, :socket_ready)
-
-            send(pid, {:tcp, client_socket, data})
+            case :gen_tcp.controlling_process(client_socket, pid) do
+              :ok ->
+                send(pid, :socket_ready)
+                send(pid, {:tcp, client_socket, data})
+              {:error, _} ->
+                :gen_tcp.close(client_socket)
+            end
 
           {:ok, %{"id" => _}} ->
             Logger.info("Handshake: Client identificado.")
 
             {:ok, pid} = Server.ClientSupervisor.start_child(client_socket)
 
-            :ok = :gen_tcp.controlling_process(client_socket, pid)
-            send(pid, :socket_ready)
+            case :gen_tcp.controlling_process(client_socket, pid) do
+              :ok -> send(pid, :socket_ready)
+              {:error, _} -> :gen_tcp.close(client_socket)
+            end
 
           _ ->
             Logger.error("Handshake desconhecido ou falha na decodificação: #{inspect(trimmed)}")

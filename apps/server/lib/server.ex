@@ -3,6 +3,7 @@ defmodule Server.Application do
 
   def start(_type, _args) do
     children = [
+      Server.Metrics,
       {Server.TcpServer, 4000},
       {Server.UdpServer, 5000},
       Server.SensorManager,

@@ -44,6 +44,7 @@ defmodule Server.ActuadorManager do
 
         DateTime.diff(now, last_seen) > timeout_seconds
       end)
+      |> Map.new()
 
     schedule_actuators()
 

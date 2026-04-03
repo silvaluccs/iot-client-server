@@ -1,5 +1,5 @@
 defmodule Server.ClientHandler do
-  use GenServer
+  use GenServer, restart: :temporary
   require Logger
 
   def start_link(socket), do: GenServer.start_link(__MODULE__, socket)
@@ -25,8 +25,13 @@ defmodule Server.ClientHandler do
         case decode do
           %{"id" => _, "command" => _, "timestamp" => _} = map ->
             command = Shared.Message.Command.new(map["id"], map["command"], map["timestamp"])
+            Server.Metrics.inc_received()
             Logger.info("Received command: #{inspect(command)}")
-            Task.start(fn -> process_command(command, socket) end)
+
+            Task.start(fn ->
+              process_command(command, socket)
+              Server.Metrics.inc_processed()
+            end)
 
           _ ->
             Logger.error("Received unknown message format: #{inspect(decode)}")
@@ -59,6 +64,12 @@ defmodule Server.ClientHandler do
       |> String.split()
 
     case parts do
+      ["server", "status"] ->
+        send_server_status(client_socket, command_map)
+
+      ["slow", seconds] ->
+        simulate_slow_command(client_socket, command_map, seconds)
+
       ["ls"] ->
         send_active_sensors(client_socket, command_map)
 
@@ -105,9 +116,43 @@ defmodule Server.ClientHandler do
     end
   end
 
+  defp send_server_status(client_socket, command_map) do
+    metrics = Server.Metrics.get_metrics()
+
+    # O comando atual já foi contabilizado como recebido, mas só será contabilizado
+    # como processado após essa função retornar. Para fins de exibição, ajustamos em flight e processados.
+    processed = metrics.commands_processed + 1
+    in_flight = max(0, metrics.in_flight - 1)
+
+    message =
+      "Status do Servidor: #{metrics.commands_received} recebidos | #{processed} processados | #{in_flight} em andamento (in-flight)\n" <>
+        "Métricas da Aplicação: #{metrics.vm_processes} processos ativos (clientes/tasks) | #{metrics.vm_memory_mb} MB de memória alocada."
+
+    response = Shared.Message.Response.new(command_map.id, message)
+    {:ok, json} = Shared.Protocol.encode(response)
+    :gen_tcp.send(client_socket, json <> "\r\n")
+  end
+
+  defp simulate_slow_command(client_socket, command_map, seconds_str) do
+    case Integer.parse(seconds_str) do
+      {seconds, _} when seconds > 0 ->
+        :timer.sleep(seconds * 1000)
+        message = "Comando 'slow' finalizado após #{seconds} segundos."
+        response = Shared.Message.Response.new(command_map.id, message)
+        {:ok, json} = Shared.Protocol.encode(response)
+        :gen_tcp.send(client_socket, json <> "\r\n")
+
+      _ ->
+        message = "Tempo inválido para o comando slow. Tente: slow 5"
+        response = Shared.Message.Response.new(command_map.id, message)
+        {:ok, json} = Shared.Protocol.encode(response)
+        :gen_tcp.send(client_socket, json <> "\r\n")
+    end
+  end
+
   defp send_specific_sensor_data(client_socket, command_map, sensor_id) do
     case Server.SensorManager.get_sensor_data(sensor_id) do
-      data when not is_nil(data) ->
+      %{active: true} = data ->
         history_to_plot = Enum.reverse(data.history)
 
         message = "CHART:#{sensor_id}:#{Jason.encode!(history_to_plot)}"
@@ -116,7 +161,7 @@ defmodule Server.ClientHandler do
         :gen_tcp.send(client_socket, json <> "\r\n")
 
       _ ->
-        message = "Sensor #{sensor_id} não encontrado."
+        message = "Sensor #{sensor_id} não encontrado ou inativo."
         response = Shared.Message.Response.new(command_map.id, message)
         {:ok, json} = Shared.Protocol.encode(response)
         :gen_tcp.send(client_socket, json <> "\r\n")

@@ -32,6 +32,9 @@ defmodule Server.UdpServer do
             timestamp: timestamp,
             active: true
           })
+
+        _ ->
+          Logger.warning("Received UDP payload with unknown format: #{inspect(message)}")
       end
     else
       {:error, reason} ->

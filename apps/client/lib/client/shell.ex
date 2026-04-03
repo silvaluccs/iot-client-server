@@ -82,8 +82,14 @@ defmodule Client.Shell do
 
   @impl true
   def handle_cast({:display_message, message}, state) do
-    IO.puts("#{message}")
-    {:noreply, state}
+    if state.active_graph != nil and String.contains?(message, "não encontrado ou inativo") do
+      IO.puts("\n#{message}")
+      IO.puts("Monitoramento encerrado automaticamente.")
+      {:noreply, %{state | active_graph: nil}}
+    else
+      IO.puts("#{message}")
+      {:noreply, state}
+    end
   end
 
   @impl true
@@ -124,6 +130,8 @@ defmodule Client.Shell do
     - cat actuator <actuator_id>: Exibe os detalhes de um atuador específico.
     - graph <sensor_id>: Exibe o gráfico de um sensor específico.
     - send <actuator_id> <ON/OFF>: Envia um comando para um atuador específico.
+    - server status: Exibe o status e métricas de processamento do servidor.
+    - slow <segundos>: Simula um comando lento para testar concorrência.
     """)
 
     shell_loop(state)
