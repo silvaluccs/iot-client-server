@@ -17,7 +17,7 @@ defmodule Client.Shell do
     IO.puts("Iniciando o Shell... Client ID: #{client_id}")
     Process.send_after(self(), :start_shell, @shell_start_delay)
 
-    {:ok, %{client_id: client_id, active_graph: nil}}
+    {:ok, %{client_id: client_id, active_graph: nil, timer_ref: nil}}
   end
 
   @impl true
@@ -62,30 +62,37 @@ defmodule Client.Shell do
   @impl true
   def handle_cast({:display_message, "CHART:" <> chart_data}, state) do
     [sensor_id, json_history] = String.split(chart_data, ":", parts: 2)
-    history = Jason.decode!(json_history)
 
-    IO.write("\e[H\e[2J")
-
-    if length(history) > 1 do
-      {:ok, chart} = Asciichart.plot(history, height: 10)
-      IO.puts(chart)
+    if state.active_graph != nil and state.active_graph != sensor_id do
+      {:noreply, state}
     else
-      IO.puts("Aguardando mais dados para desenhar o gráfico...")
+      history = Jason.decode!(json_history)
+
+      IO.write("\e[H\e[2J")
+
+      if length(history) > 1 do
+        {:ok, chart} = Asciichart.plot(history, height: 10)
+        IO.puts(chart)
+      else
+        IO.puts("Aguardando mais dados para desenhar o gráfico...")
+      end
+
+      IO.puts("Monitorando Sensor: #{sensor_id} (Digite 'q' e aperte ENTER para sair)")
+
+      if state.timer_ref, do: Process.cancel_timer(state.timer_ref)
+      timer_ref = Process.send_after(self(), {:poll_top, sensor_id}, 1000)
+
+      {:noreply, %{state | active_graph: sensor_id, timer_ref: timer_ref}}
     end
-
-    IO.puts("Monitorando Sensor: #{sensor_id} (Digite 'q' e aperte ENTER para sair)")
-
-    Process.send_after(self(), {:poll_top, sensor_id}, 1000)
-
-    {:noreply, %{state | active_graph: sensor_id}}
   end
 
   @impl true
   def handle_cast({:display_message, message}, state) do
     if state.active_graph != nil and String.contains?(message, "não encontrado ou inativo") do
+      if state.timer_ref, do: Process.cancel_timer(state.timer_ref)
       IO.puts("\n#{message}")
       IO.puts("Monitoramento encerrado automaticamente.")
-      {:noreply, %{state | active_graph: nil}}
+      {:noreply, %{state | active_graph: nil, timer_ref: nil}}
     else
       IO.puts("#{message}")
       {:noreply, state}
@@ -94,8 +101,14 @@ defmodule Client.Shell do
 
   @impl true
   def handle_cast(:stop_graph, state) do
+    if state.timer_ref, do: Process.cancel_timer(state.timer_ref)
     IO.puts("\nSaindo do modo gráfico...")
-    {:noreply, %{state | active_graph: nil}}
+    {:noreply, %{state | active_graph: nil, timer_ref: nil}}
+  end
+
+  @impl true
+  def handle_call(:get_state, _from, state) do
+    {:reply, state, state}
   end
 
   defp shell_loop(state) do
@@ -152,11 +165,23 @@ defmodule Client.Shell do
     shell_loop(state)
   end
 
-  defp handle_input(input, state) do
-    if state.active_graph != nil do
-      IO.puts("\nSaindo do modo gráfico...")
-    end
+  defp handle_input("graph " <> _ = input, state) do
+    current_state = GenServer.call(__MODULE__, :get_state)
 
+    if current_state.active_graph != nil do
+      IO.puts(
+        "Um gráfico já está ativo para o sensor #{current_state.active_graph}. Digite 'q' para sair primeiro."
+      )
+
+      shell_loop(state)
+    else
+      command = Shared.Message.Command.new(state.client_id, input)
+      Client.Connection.send_message(command)
+      shell_loop(state)
+    end
+  end
+
+  defp handle_input(input, state) do
     command = Shared.Message.Command.new(state.client_id, input)
     Client.Connection.send_message(command)
     shell_loop(state)
