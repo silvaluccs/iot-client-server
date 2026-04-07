@@ -40,6 +40,8 @@ A aplicação **A Rota das Coisas** atua como um **hub central**:
   <img src="./asserts/arquitetura.png" alt="Arquitetura geral do sistema" width="900"/>
 </p>
 
+
+
 ### Componentes do sistema
 - **Sensor app** (`apps/sensor`)  
   Emite dados periódicos (telemetria) para o servidor via UDP.
@@ -193,6 +195,13 @@ docker compose down
 ---
 
 ## 🛠️ Execução alternativa com Makefile (rede local / múltiplas máquinas)
+
+<p align="center">
+  <img src="./asserts/arquitetura distribuida.png" alt="Arquitetura distribuida do sistema" width="900"/>
+</p>
+
+`Exemplo de execução com 4 máquinas`
+
 
 Além do `docker compose`, o projeto também fornece um **`Makefile`** para subir os serviços de forma modular.
 Esse modo é ideal para:
