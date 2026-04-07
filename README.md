@@ -97,7 +97,7 @@ A estrutura usa supervisão para reinício automático de processos e isolamento
 - Tasks assíncronas para processamento sem bloquear listeners.
 
 <p align="center">
-  <img src="./relatorio/assets/supervision-tree.png" alt="Supervision tree" width="700"/>
+  <img src="./asserts/arvore de supervisão.png" alt="Arquitetura distribuida do sistema" width="900"/>
 </p>
 
 ---
@@ -199,6 +199,7 @@ docker compose down
 <p align="center">
   <img src="./asserts/arquitetura distribuida.png" alt="Arquitetura distribuida do sistema" width="900"/>
 </p>
+
 
 `Exemplo de execução com 4 máquinas`
 
