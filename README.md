@@ -40,7 +40,7 @@ A aplicação **A Rota das Coisas** atua como um **hub central**:
 ## 🏗️ Arquitetura (visão didática)
 
 <p align="center">
-  <img src="./relatorio/assets/arquitetura-geral.png" alt="Arquitetura geral do sistema" width="900"/>
+  <img src="./relatorio/asserts/arquitetura.jpg" alt="Arquitetura geral do sistema" width="900"/>
 </p>
 
 > Se o arquivo de imagem tiver outro nome/pasta no seu relatório, ajuste o caminho no `src`.
