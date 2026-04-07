@@ -32,18 +32,13 @@ A aplicação **A Rota das Coisas** atua como um **hub central**:
 - processa tudo de forma concorrente com **BEAM + OTP**,
 - roda de forma reproduzível em **containers Docker**.
 
-> Em uma frase: **desacoplar comunicação IoT com uma arquitetura concorrente, resiliente e orientada a protocolos adequados para cada tipo de tráfego.**
-
-
 ---
 
 ## 🏗️ Arquitetura (visão didática)
 
 <p align="center">
-  <img src="./relatorio/asserts/arquitetura.jpg" alt="Arquitetura geral do sistema" width="900"/>
+  <img src="./asserts/arquitetura.png" alt="Arquitetura geral do sistema" width="900"/>
 </p>
-
-> Se o arquivo de imagem tiver outro nome/pasta no seu relatório, ajuste o caminho no `src`.
 
 ### Componentes do sistema
 - **Sensor app** (`apps/sensor`)  
