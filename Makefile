@@ -64,5 +64,5 @@ run-actuator: setup-network build-actuator
 		--network $(NETWORK_NAME) \
 		-e SERVER_HOST=$(SERVER_IP) \
 		-e SERVER_IP=$(SERVER_IP) \
-		-e SERVER_PORT=$(SENSOR_PORT) \
+		-e SERVER_PORT=$(CLIENT_PORT) \
 		iot_actuator

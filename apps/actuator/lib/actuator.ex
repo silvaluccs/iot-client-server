@@ -1,20 +1,27 @@
 defmodule Actuator.Application do
-  # See https://hexdocs.pm/elixir/Application.html
-  # for more information on OTP Applications
-  @moduledoc false
+  @moduledoc """
+  O ponto de entrada para a aplicação do Atuador (Actuator).
+
+  Este módulo define o callback da aplicação e configura a árvore de supervisão
+  para o serviço do atuador, gerenciando o ciclo de vida dos seus processos de trabalho.
+  """
 
   use Application
 
+  @doc """
+  Inicia a aplicação e sua árvore de supervisão.
+  """
   @impl true
   def start(_type, _args) do
-    children = [
-      Actuator.Worker
-      # Starts a worker by calling: Actuator.Worker.start_link(arg)
-      # {Actuator.Worker, arg}
-    ]
+    children =
+      if Mix.env() == :test do
+        []
+      else
+        [
+          Actuator.Worker
+        ]
+      end
 
-    # See https://hexdocs.pm/elixir/Supervisor.html
-    # for other strategies and supported options
     opts = [strategy: :one_for_one, name: Actuator.Supervisor]
     Supervisor.start_link(children, opts)
   end

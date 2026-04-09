@@ -296,8 +296,28 @@ docker compose attach client
 
 No shell:
 ```text
-ls
-graph <id_sensor>
+> help
+Comandos disponíveis:
+- help: Exibe esta mensagem de ajuda.
+- exit: Encerra o shell.
+- q: Sai do modo de monitoramento gráfico.
+- ls: Lista todos os sensores ativos.
+- ls actuators: Lista todos os atuadores ativos.
+- cat sensors: Lista os detalhes de todos os sensores.
+- cat <sensor_id>: Exibe os detalhes de um sensor específico.
+- cat actuators: Lista os detalhes de todos os atuadores.
+- cat actuator <actuator_id>: Exibe os detalhes de um atuador específico.
+- graph <sensor_id>: Exibe o gráfico de um sensor específico.
+- send <actuator_id> <ON/OFF>: Envia um comando para um atuador específico.
+- server status: Exibe o status e métricas de processamento do servidor.
+- slow <segundos>: Simula um comando lento para testar concorrência.
+
+```
+
+No shell:
+```text
+> ls
+> graph <id_sensor>
 ```
 
 ---
@@ -305,22 +325,22 @@ graph <id_sensor>
 ### Passo 3 — Comandos e confiabilidade (TCP)
 Ainda no shell:
 ```text
-ls actuators
-send <id_atuador> ON
-send <id_atuador> OFF
+> ls actuators
+> send <id_atuador> ON
+> send <id_atuador> OFF
 ```
 ---
 
 ### Passo 4 — Concorrência extrema / isolamento
 No terminal A (shell cliente):
 ```text
-slow 15
+> slow 15
 ```
 
 Sem esperar terminar, no terminal B:
 ```text
-send <id_atuador> ON
-ls
+> send <id_atuador> ON
+> ls
 ```
 
 Uma operação lenta não bloqueia as demais. Cada conexão é isolada por processo da BEAM.
@@ -330,7 +350,7 @@ Uma operação lenta não bloqueia as demais. Cada conexão é isolada por proce
 ### Passo 5 — Observabilidade
 No shell:
 ```text
-server status
+> server status
 ```
 ---
 
@@ -351,8 +371,6 @@ Imagine uma central telefônica:
 - Testes com grande volume de conexões TCP simultâneas;
 - Processamento não bloqueante mesmo em cenários de estresse;
 - Validação da separação de transporte por perfil de tráfego (UDP vs TCP).
-
-> Referência principal: `relatorio/principal.pdf`
 
 ---
 

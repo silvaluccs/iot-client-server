@@ -1,22 +1,37 @@
 defmodule Server.ClientHandler do
+  @moduledoc """
+  Gerencia a conexão TCP individual de um cliente (interface de usuário) ao servidor.
+
+  Para cada cliente conectado, um processo temporário deste módulo é instanciado.
+  Ele escuta comandos textuais recebidos via rede, interpreta esses comandos,
+  consulta o estado global de sensores e atuadores e devolve a resposta apropriada.
+  """
   use GenServer, restart: :temporary
   require Logger
 
+  @doc """
+  Inicia o manipulador de cliente vinculando-o ao socket TCP estabelecido.
+  """
   def start_link(socket), do: GenServer.start_link(__MODULE__, socket)
 
   @impl true
+  @doc false
   def init(socket) do
+    # O estado inicial mantém apenas a referência do socket
     {:ok, %{socket: socket}}
   end
 
   @impl true
+  @doc false
   def handle_info(:socket_ready, state) do
+    # Configura o socket para enviar os pacotes recebidos como mensagens Elixir linha a linha
     :ok = :inet.setopts(state.socket, active: true, packet: :line)
-    Logger.info("Client handler is ready to receive data.")
+    Logger.info("O manipulador de cliente está pronto para receber dados.")
     {:noreply, state}
   end
 
   @impl true
+  @doc false
   def handle_info({:tcp, socket, data}, state) do
     trimmed = String.trim(data)
 
@@ -26,19 +41,23 @@ defmodule Server.ClientHandler do
           %{"id" => _, "command" => _, "timestamp" => _} = map ->
             command = Shared.Message.Command.new(map["id"], map["command"], map["timestamp"])
             Server.Metrics.inc_received()
-            Logger.info("Received command: #{inspect(command)}")
+            Logger.info("Comando recebido: #{inspect(command)}")
 
+            # Processa o comando em uma Task assíncrona para não bloquear a recepção
+            # de novas mensagens neste GenServer
             Task.start(fn ->
               process_command(command, socket)
               Server.Metrics.inc_processed()
             end)
 
           _ ->
-            Logger.error("Received unknown message format: #{inspect(decode)}")
+            Logger.error(
+              "Formato de mensagem desconhecido recebido do cliente: #{inspect(decode)}"
+            )
         end
       else
         {:error, reason} ->
-          Logger.error("Failed to decode message: #{inspect(reason)}")
+          Logger.error("Falha ao decodificar mensagem do cliente: #{inspect(reason)}")
       end
     end
 
@@ -46,17 +65,22 @@ defmodule Server.ClientHandler do
   end
 
   @impl true
+  @doc false
   def handle_info({:tcp_error, socket, reason}, state) do
-    Logger.error("TCP error on socket #{inspect(socket)}: #{reason}")
+    Logger.error("Erro TCP no socket do cliente #{inspect(socket)}: #{reason}")
     {:stop, reason, state}
   end
 
   @impl true
+  @doc false
   def handle_info({:tcp_closed, socket}, state) do
-    Logger.info("Client disconnected: #{inspect(socket)}")
+    Logger.info("Cliente desconectado: #{inspect(socket)}")
     {:stop, :normal, state}
   end
 
+  # --- Funções Internas de Processamento de Comandos ---
+
+  # Roteia e executa o comando solicitado pelo cliente baseado nas palavras-chave da string.
   defp process_command(command_map, client_socket) do
     parts =
       command_map.command
@@ -120,7 +144,7 @@ defmodule Server.ClientHandler do
     metrics = Server.Metrics.get_metrics()
 
     # O comando atual já foi contabilizado como recebido, mas só será contabilizado
-    # como processado após essa função retornar. Para fins de exibição, ajustamos em flight e processados.
+    # como processado após essa função retornar. Para fins de exibição, ajustamos in_flight e processados.
     processed = metrics.commands_processed + 1
     in_flight = max(0, metrics.in_flight - 1)
 
@@ -155,6 +179,8 @@ defmodule Server.ClientHandler do
       %{active: true} = data ->
         history_to_plot = Enum.reverse(data.history)
 
+        # Envia uma string formatada com o prefixo CHART: para que o client identifique
+        # que deve renderizar um gráfico ASCII.
         message = "CHART:#{sensor_id}:#{Jason.encode!(history_to_plot)}"
         response = Shared.Message.Response.new(command_map.id, message)
         {:ok, json} = Shared.Protocol.encode(response)
@@ -257,6 +283,7 @@ defmodule Server.ClientHandler do
     if actuator_data do
       msg = Shared.Message.Command.new(command_map.id, String.upcase(cmd))
       {:ok, act_json} = Shared.Protocol.encode(msg)
+      # Repassa a instrução enviando direto para o socket TCP do atuador registrado
       :gen_tcp.send(actuator_data.socket, act_json <> "\r\n")
 
       message = "Comando '#{String.upcase(cmd)}' enviado ao Atuador #{actuator_id}."
